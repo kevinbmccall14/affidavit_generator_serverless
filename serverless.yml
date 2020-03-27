@@ -1,0 +1,260 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: backend
+# app and org for use with dashboard.serverless.com
+app: backend-app
+org: kevinbmccall14
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  httpApi:
+    cors: true
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:*"
+      Resource: "arn:aws:s3:::backend-dev-uploadbucket*"
+    - Effect: "Allow"
+      Action:
+        - textract:StartDocumentTextDetection
+        - textract:GetDocumentTextDetection
+      Resource: "*"
+
+# you can overwrite defaults here
+#  stage: dev
+#  region: us-east-1
+
+# you can define service wide environment variables here
+#  environment:
+#    variable1: value1
+
+# you can add packaging information here
+#package:
+#  include:
+#    - include-me.js
+#    - include-me-dir/**
+#  exclude:
+#    - exclude-me.js
+#    - exclude-me-dir/**
+
+functions:
+  presignS3:
+    handler: functions/presignS3.handler
+    events:
+      - httpApi:
+          path: /presignS3
+          method: POST
+  textract:
+    handler: functions/textract.handler
+    events:
+      - httpApi:
+          path: /textract
+          method: POST
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - UploadQueue
+              - Arn
+          batchSize: 1
+
+#      - websocket: $connect
+#      - s3: ${env:BUCKET}
+#      - schedule: rate(10 minutes)
+#      - sns: greeter-topic
+#      - stream: arn:aws:dynamodb:region:XXXXXX:table/foo/stream/1970-01-01T00:00:00.000
+#      - alexaSkill: amzn1.ask.skill.xx-xx-xx-xx
+#      - alexaSmartHome: amzn1.ask.skill.xx-xx-xx-xx
+#      - iot:
+#          sql: "SELECT * FROM 'some_topic'"
+#      - cloudwatchEvent:
+#          event:
+#            source:
+#              - "aws.ec2"
+#            detail-type:
+#              - "EC2 Instance State-change Notification"
+#            detail:
+#              state:
+#                - pending
+#      - cloudwatchLog: '/aws/lambda/hello'
+#      - cognitoUserPool:
+#          pool: MyUserPool
+#          trigger: PreSignUp
+#      - alb:
+#          listenerArn: arn:aws:elasticloadbalancing:us-east-1:XXXXXX:listener/app/my-load-balancer/50dc6c495c0c9188/
+#          priority: 1
+#          conditions:
+#            host: example.com
+#            path: /hello
+
+#    Define function environment variables here
+#    environment:
+#      variable2: value2
+
+# you can add CloudFormation resource templates here
+resources:
+  Resources:
+    UploadQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: "uploadQueue"
+        MessageRetentionPeriod: 60
+        VisibilityTimeout: 60
+    UploadQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2008-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                AWS: "*"
+              Action:
+                - SQS:SendMessage
+              Resource: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn:
+                    Ref: UploadTopic
+        Queues:
+          - Ref: UploadQueue
+    UploadTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: "uploadTopic"
+        Subscription:
+          - Endpoint:
+              Fn::GetAtt:
+                - UploadQueue
+                - Arn
+            Protocol: sqs
+    UploadTopicPolicy:
+      Type: AWS::SNS::TopicPolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: UploadTopicPolicy
+              Effect: Allow
+              Principal:
+                Service: s3.amazonaws.com
+              Action: sns:Publish
+              Resource: "*"
+        Topics:
+          - Ref: UploadTopic
+    UploadBucket:
+      Type: AWS::S3::Bucket
+      DependsOn: UploadTopicPolicy
+      Properties:
+        NotificationConfiguration:
+          TopicConfigurations:
+            - Event: s3:ObjectCreated:*
+              Topic:
+                Ref: UploadTopic
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - "*"
+              AllowedHeaders:
+                - "*"
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
+    TextractQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: "textractQueue"
+        MessageRetentionPeriod: 60
+        VisibilityTimeout: 60
+    TextractQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2008-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                AWS: "*"
+              Action:
+                - SQS:SendMessage
+              Resource: "*"
+              Condition:
+                ArnEquals:
+                  aws:SourceArn:
+                    Ref: TextractTopic
+        Queues:
+          - Ref: TextractQueue
+    TextractTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: "textractTopic"
+        Subscription:
+          - Endpoint:
+              Fn::GetAtt:
+                - TextractQueue
+                - Arn
+            Protocol: sqs
+    TextractTopicPolicy:
+      Type: AWS::SNS::TopicPolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: TextractTopicPolicy
+              Effect: Allow
+              Principal:
+                Service: s3.amazonaws.com
+              Action: sns:Publish
+              Resource: "*"
+        Topics:
+          - Ref: TextractTopic
+    TextractRole:
+      Type: AWS::IAM::Role
+      Properties:
+        Description: IAM Role for Textract service to publish to SNS
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - textract.amazonaws.com
+              Action:
+                - sts:AssumeRole
+    TextractRolePolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: TextractPublishSNS
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: sns:Publish
+              Resource:
+                Ref: TextractTopic
+        Roles:
+          - Ref: TextractRole
+  Outputs:
+    UploadBucketName:
+      Description: "Bucket Name"
+      Value:
+        Ref: UploadBucket
