@@ -53,7 +53,7 @@ def handler(event, context):
         }
 
     # Get Successfull Document Text JSON
-    response = textract.get_document_text_detection(
+    response = textract.get_document_analysis(
         JobId=parsed_message["JobId"]
     )
 

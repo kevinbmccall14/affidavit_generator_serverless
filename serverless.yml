@@ -31,8 +31,8 @@ provider:
       Resource: "arn:aws:s3:::backend-dev-uploadbucket*"
     - Effect: "Allow"
       Action:
-        - textract:StartDocumentTextDetection
-        - textract:GetDocumentTextDetection
+        - textract:StartDocumentAnalysis
+        - textract:GetDocumentAnalysis
       Resource: "*"
 
 # you can overwrite defaults here
@@ -70,8 +70,8 @@ functions:
               - UploadQueue
               - Arn
           batchSize: 1
-  getDocumentText:
-    handler: functions/getDocumentText.handler
+  getAnalysis:
+    handler: functions/getAnalysis.handler
     runtime: python3.8
     events:
       - sqs:

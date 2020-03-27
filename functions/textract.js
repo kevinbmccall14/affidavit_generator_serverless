@@ -29,6 +29,7 @@ module.exports.handler = async event => {
         Name,
       },
     },
+    FeatureTypes: ['TABLES', 'FORMS'],
     NotificationChannel: {
       RoleArn:
         'arn:aws:iam::527448467163:role/backend-dev-TextractRole-JC73ZZNLZ2SA',
@@ -36,7 +37,7 @@ module.exports.handler = async event => {
     },
   };
   const response = await textract
-    .startDocumentTextDetection(params)
+    .startDocumentAnalysis(params)
     .promise();
 
   console.log(response);
