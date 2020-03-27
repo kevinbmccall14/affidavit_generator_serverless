@@ -22,19 +22,18 @@ org: kevinbmccall14
 
 provider:
   name: aws
-  runtime: nodejs12.x
   httpApi:
     cors: true
   iamRoleStatements:
-    - Effect: 'Allow'
+    - Effect: "Allow"
       Action:
-        - 's3:*'
-      Resource: 'arn:aws:s3:::backend-dev-uploadbucket*'
-    - Effect: 'Allow'
+        - "s3:*"
+      Resource: "arn:aws:s3:::backend-dev-uploadbucket*"
+    - Effect: "Allow"
       Action:
         - textract:StartDocumentTextDetection
         - textract:GetDocumentTextDetection
-      Resource: '*'
+      Resource: "*"
 
 # you can overwrite defaults here
 #  stage: dev
@@ -56,12 +55,14 @@ provider:
 functions:
   presignS3:
     handler: functions/presignS3.handler
+    runtime: nodejs12.x
     events:
       - httpApi:
           path: /presignS3
           method: POST
   textract:
     handler: functions/textract.handler
+    runtime: nodejs12.x
     events:
       - sqs:
           arn:
@@ -71,6 +72,7 @@ functions:
           batchSize: 1
   getDocumentText:
     handler: functions/getDocumentText.handler
+    runtime: python3.8
     events:
       - sqs:
           arn:
@@ -78,61 +80,31 @@ functions:
               - TextractQueue
               - Arn
           batchSize: 1
+    package:
+      include:
+        - helpers/textractParser
 
-#      - websocket: $connect
-#      - s3: ${env:BUCKET}
-#      - schedule: rate(10 minutes)
-#      - sns: greeter-topic
-#      - stream: arn:aws:dynamodb:region:XXXXXX:table/foo/stream/1970-01-01T00:00:00.000
-#      - alexaSkill: amzn1.ask.skill.xx-xx-xx-xx
-#      - alexaSmartHome: amzn1.ask.skill.xx-xx-xx-xx
-#      - iot:
-#          sql: "SELECT * FROM 'some_topic'"
-#      - cloudwatchEvent:
-#          event:
-#            source:
-#              - "aws.ec2"
-#            detail-type:
-#              - "EC2 Instance State-change Notification"
-#            detail:
-#              state:
-#                - pending
-#      - cloudwatchLog: '/aws/lambda/hello'
-#      - cognitoUserPool:
-#          pool: MyUserPool
-#          trigger: PreSignUp
-#      - alb:
-#          listenerArn: arn:aws:elasticloadbalancing:us-east-1:XXXXXX:listener/app/my-load-balancer/50dc6c495c0c9188/
-#          priority: 1
-#          conditions:
-#            host: example.com
-#            path: /hello
-
-#    Define function environment variables here
-#    environment:
-#      variable2: value2
-
-# you can add CloudFormation resource templates here
+# CloudFormation resources
 resources:
   Resources:
     UploadQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: 'uploadQueue'
+        QueueName: "uploadQueue"
         MessageRetentionPeriod: 60
         VisibilityTimeout: 60
     UploadQueuePolicy:
       Type: AWS::SQS::QueuePolicy
       Properties:
         PolicyDocument:
-          Version: '2008-10-17'
+          Version: "2008-10-17"
           Statement:
             - Effect: Allow
               Principal:
-                AWS: '*'
+                AWS: "*"
               Action:
                 - SQS:SendMessage
-              Resource: '*'
+              Resource: "*"
               Condition:
                 ArnEquals:
                   aws:SourceArn:
@@ -142,7 +114,7 @@ resources:
     UploadTopic:
       Type: AWS::SNS::Topic
       Properties:
-        TopicName: 'uploadTopic'
+        TopicName: "uploadTopic"
         Subscription:
           - Endpoint:
               Fn::GetAtt:
@@ -153,14 +125,14 @@ resources:
       Type: AWS::SNS::TopicPolicy
       Properties:
         PolicyDocument:
-          Version: '2012-10-17'
+          Version: "2012-10-17"
           Statement:
             - Sid: UploadTopicPolicy
               Effect: Allow
               Principal:
                 Service: s3.amazonaws.com
               Action: sns:Publish
-              Resource: '*'
+              Resource: "*"
         Topics:
           - Ref: UploadTopic
     UploadBucket:
@@ -175,9 +147,9 @@ resources:
         CorsConfiguration:
           CorsRules:
             - AllowedOrigins:
-                - '*'
+                - "*"
               AllowedHeaders:
-                - '*'
+                - "*"
               AllowedMethods:
                 - GET
                 - PUT
@@ -188,21 +160,21 @@ resources:
     TextractQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: 'textractQueue'
+        QueueName: "textractQueue"
         MessageRetentionPeriod: 60
         VisibilityTimeout: 60
     TextractQueuePolicy:
       Type: AWS::SQS::QueuePolicy
       Properties:
         PolicyDocument:
-          Version: '2008-10-17'
+          Version: "2008-10-17"
           Statement:
             - Effect: Allow
               Principal:
-                AWS: '*'
+                AWS: "*"
               Action:
                 - SQS:SendMessage
-              Resource: '*'
+              Resource: "*"
               Condition:
                 ArnEquals:
                   aws:SourceArn:
@@ -212,7 +184,7 @@ resources:
     TextractTopic:
       Type: AWS::SNS::Topic
       Properties:
-        TopicName: 'textractTopic'
+        TopicName: "textractTopic"
         Subscription:
           - Endpoint:
               Fn::GetAtt:
@@ -223,14 +195,14 @@ resources:
       Type: AWS::SNS::TopicPolicy
       Properties:
         PolicyDocument:
-          Version: '2012-10-17'
+          Version: "2012-10-17"
           Statement:
             - Sid: TextractTopicPolicy
               Effect: Allow
               Principal:
                 Service: s3.amazonaws.com
               Action: sns:Publish
-              Resource: '*'
+              Resource: "*"
         Topics:
           - Ref: TextractTopic
     TextractRole:
@@ -238,7 +210,7 @@ resources:
       Properties:
         Description: IAM Role for Textract service to publish to SNS
         AssumeRolePolicyDocument:
-          Version: '2012-10-17'
+          Version: "2012-10-17"
           Statement:
             - Effect: Allow
               Principal:
@@ -251,7 +223,7 @@ resources:
       Properties:
         PolicyName: TextractPublishSNS
         PolicyDocument:
-          Version: '2012-10-17'
+          Version: "2012-10-17"
           Statement:
             - Effect: Allow
               Action: sns:Publish
@@ -261,6 +233,13 @@ resources:
           - Ref: TextractRole
   Outputs:
     UploadBucketName:
-      Description: 'Bucket Name'
+      Description: "Bucket Name"
       Value:
         Ref: UploadBucket
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
