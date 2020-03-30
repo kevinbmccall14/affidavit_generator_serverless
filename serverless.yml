@@ -37,8 +37,7 @@ provider:
     - Effect: "Allow"
       Action:
         - dynamodb:PutItem
-      Resource:
-        - Fn::GetAtt: [CasesTable, Arn]
+      Resource: "*"
 
 # you can overwrite defaults here
 #  stage: dev
@@ -236,19 +235,19 @@ resources:
                 Ref: TextractTopic
         Roles:
           - Ref: TextractRole
-    CasesTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: CasesTable
-        AttributeDefinitions:
-          - AttributeName: id
-            AttributeType: S
-        KeySchema:
-          - AttributeName: id
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+    # CasesTable:
+    #   Type: AWS::DynamoDB::Table
+    #   Properties:
+    #     TableName: CasesTable
+    #     AttributeDefinitions:
+    #       - AttributeName: id
+    #         AttributeType: S
+    #     KeySchema:
+    #       - AttributeName: id
+    #         KeyType: HASH
+    #     ProvisionedThroughput:
+    #       ReadCapacityUnits: 1
+    #       WriteCapacityUnits: 1
   Outputs:
     UploadBucketName:
       Description: "Bucket Name"
