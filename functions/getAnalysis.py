@@ -6,7 +6,7 @@ from decimal import Decimal
 
 textract = boto3.client('textract')
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('Case-eag5diu73rehxez47mn7fvcc7y-dev')
+table = dynamodb.Table('File-eag5diu73rehxez47mn7fvcc7y-dev')
 
 
 def removeEmptyString(dic):

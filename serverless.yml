@@ -25,19 +25,19 @@ provider:
   httpApi:
     cors: true
   iamRoleStatements:
-    - Effect: "Allow"
+    - Effect: 'Allow'
       Action:
-        - "s3:*"
-      Resource: "arn:aws:s3:::backend-dev-uploadbucket*"
-    - Effect: "Allow"
+        - 's3:*'
+      Resource: 'arn:aws:s3:::backend-dev-uploadbucket*'
+    - Effect: 'Allow'
       Action:
         - textract:StartDocumentAnalysis
         - textract:GetDocumentAnalysis
-      Resource: "*"
-    - Effect: "Allow"
+      Resource: '*'
+    - Effect: 'Allow'
       Action:
         - dynamodb:PutItem
-      Resource: "*"
+      Resource: '*'
 
 # you can overwrite defaults here
 #  stage: dev
@@ -74,6 +74,16 @@ functions:
               - UploadQueue
               - Arn
           batchSize: 1
+  createFile:
+    handler: functions/createFile.handler
+    runtime: nodejs12.x
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - CreateFileQueue
+              - Arn
+          batchSize: 1
   getAnalysis:
     handler: functions/getAnalysis.handler
     runtime: python3.8
@@ -94,21 +104,21 @@ resources:
     UploadQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: "uploadQueue"
+        QueueName: 'uploadQueue'
         MessageRetentionPeriod: 60
         VisibilityTimeout: 60
     UploadQueuePolicy:
       Type: AWS::SQS::QueuePolicy
       Properties:
         PolicyDocument:
-          Version: "2008-10-17"
+          Version: '2008-10-17'
           Statement:
             - Effect: Allow
               Principal:
-                AWS: "*"
+                AWS: '*'
               Action:
                 - SQS:SendMessage
-              Resource: "*"
+              Resource: '*'
               Condition:
                 ArnEquals:
                   aws:SourceArn:
@@ -118,25 +128,30 @@ resources:
     UploadTopic:
       Type: AWS::SNS::Topic
       Properties:
-        TopicName: "uploadTopic"
+        TopicName: 'uploadTopic'
         Subscription:
           - Endpoint:
               Fn::GetAtt:
                 - UploadQueue
                 - Arn
             Protocol: sqs
+          - Endpoint:
+              Fn::GetAtt:
+                - CreateFileQueue
+                - Arn
+            Protocol: sqs
     UploadTopicPolicy:
       Type: AWS::SNS::TopicPolicy
       Properties:
         PolicyDocument:
-          Version: "2012-10-17"
+          Version: '2012-10-17'
           Statement:
             - Sid: UploadTopicPolicy
               Effect: Allow
               Principal:
                 Service: s3.amazonaws.com
               Action: sns:Publish
-              Resource: "*"
+              Resource: '*'
         Topics:
           - Ref: UploadTopic
     UploadBucket:
@@ -151,9 +166,9 @@ resources:
         CorsConfiguration:
           CorsRules:
             - AllowedOrigins:
-                - "*"
+                - '*'
               AllowedHeaders:
-                - "*"
+                - '*'
               AllowedMethods:
                 - GET
                 - PUT
@@ -161,24 +176,48 @@ resources:
                 - DELETE
                 - HEAD
               MaxAge: 3000
+    CreateFileQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: 'createFileQueue'
+        MessageRetentionPeriod: 60
+        VisibilityTimeout: 60
+    CreateFileQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: '2008-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                AWS: '*'
+              Action:
+                - SQS:SendMessage
+              Resource: '*'
+              Condition:
+                ArnEquals:
+                  aws:SourceArn:
+                    Ref: UploadTopic
+        Queues:
+          - Ref: CreateFileQueue
     TextractQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: "textractQueue"
+        QueueName: 'textractQueue'
         MessageRetentionPeriod: 60
         VisibilityTimeout: 60
     TextractQueuePolicy:
       Type: AWS::SQS::QueuePolicy
       Properties:
         PolicyDocument:
-          Version: "2008-10-17"
+          Version: '2008-10-17'
           Statement:
             - Effect: Allow
               Principal:
-                AWS: "*"
+                AWS: '*'
               Action:
                 - SQS:SendMessage
-              Resource: "*"
+              Resource: '*'
               Condition:
                 ArnEquals:
                   aws:SourceArn:
@@ -188,7 +227,7 @@ resources:
     TextractTopic:
       Type: AWS::SNS::Topic
       Properties:
-        TopicName: "textractTopic"
+        TopicName: 'textractTopic'
         Subscription:
           - Endpoint:
               Fn::GetAtt:
@@ -199,14 +238,14 @@ resources:
       Type: AWS::SNS::TopicPolicy
       Properties:
         PolicyDocument:
-          Version: "2012-10-17"
+          Version: '2012-10-17'
           Statement:
             - Sid: TextractTopicPolicy
               Effect: Allow
               Principal:
                 Service: s3.amazonaws.com
               Action: sns:Publish
-              Resource: "*"
+              Resource: '*'
         Topics:
           - Ref: TextractTopic
     TextractRole:
@@ -214,7 +253,7 @@ resources:
       Properties:
         Description: IAM Role for Textract service to publish to SNS
         AssumeRolePolicyDocument:
-          Version: "2012-10-17"
+          Version: '2012-10-17'
           Statement:
             - Effect: Allow
               Principal:
@@ -227,7 +266,7 @@ resources:
       Properties:
         PolicyName: TextractPublishSNS
         PolicyDocument:
-          Version: "2012-10-17"
+          Version: '2012-10-17'
           Statement:
             - Effect: Allow
               Action: sns:Publish
@@ -250,7 +289,7 @@ resources:
     #       WriteCapacityUnits: 1
   Outputs:
     UploadBucketName:
-      Description: "Bucket Name"
+      Description: 'Bucket Name'
       Value:
         Ref: UploadBucket
 
