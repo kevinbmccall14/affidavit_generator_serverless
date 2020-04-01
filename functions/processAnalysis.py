@@ -4,6 +4,7 @@ import boto3
 import requests
 from helpers.textractParser import Document
 
+s3 = boto3.resource('s3')
 textract = boto3.client('textract')
 
 
@@ -77,7 +78,7 @@ def processDocument(doc, url):
     #     print("Field: Key: {}, Value: {}".format(field.key, field.value))
 
 
-def upsertFile(item):
+def updateFile(item):
     query = """mutation updateFile(
       $input: UpdateFileInput!
     ) {
@@ -105,7 +106,7 @@ def upsertFile(item):
 
 
 def handler(event, context):
-    # Parse JobID from TextractQueue
+    # Parse notification from analysis bucket
     print('## EVENT')
     print(event)
     for record in event['Records']:
@@ -115,31 +116,26 @@ def handler(event, context):
     print('## PARSED MESSAGE')
     print(parsed_message)
 
-    # 500 level error will keep event on TextractQueue
-    # TextractQueue can configure max retry attempts and event age
-    if parsed_message["Status"] != 'SUCCEEDED':
-        return {
-            'statusCode': 500,
-            'body': json.dumps(parsed_message)
-        }
+    bucket_name = parsed_message['Records'][0]["s3"]['bucket']['name']
+    file_name = parsed_message['Records'][0]["s3"]['object']['key']
 
-    print('Found successful job:', parsed_message["JobId"])
+    content_object = s3.Object(bucket_name, file_name)
+    file_content = content_object.get()
+    file_body = file_content['Body'].read().decode('utf-8')
+    file_metadata = file_content['Metadata']
 
-    # Get successfull analysis JSON
-    analysis = textract.get_document_analysis(
-        JobId=parsed_message["JobId"]
-    )
+    print('## FOUND ANALYSIS WITH METADATA:', file_metadata)
 
-    fileName = parsed_message["DocumentLocation"]['S3ObjectName']
-    bucketName = parsed_message["DocumentLocation"]['S3Bucket']
-    fileUrl = 'https://' + bucketName + '.s3.amazonaws.com/' + fileName
+    # parse json into Document object with textractParser helper
+    doc = Document(json.loads(file_body))
 
-    # parse json into Document object with textractParser
-    doc = Document(analysis)
     # process parsed document into dictionary item
+    fileUrl = file_metadata['fileurl'].replace('%3A', ':')
+    print('## PROCESSING JSON FOR:', fileUrl)
     item = processDocument(doc, fileUrl)
-    # post to AppSync Api to upsert item into DynamoDB
-    response = upsertFile(item=item)
+
+    # save processed pages data into DynamoDB
+    response = updateFile(item=item)
 
     print('## RESPONSE')
     print(response)
