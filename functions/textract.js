@@ -36,11 +36,11 @@ module.exports.handler = async event => {
       SNSTopicArn: 'arn:aws:sns:us-east-1:527448467163:textractTopic',
     },
   };
+  console.log('## Starting Analysis for:', Name);
   const response = await textract
     .startDocumentAnalysis(params)
     .promise();
-
-  console.log(response);
+  console.log('## Response:', response);
 
   return {
     statusCode: 200,

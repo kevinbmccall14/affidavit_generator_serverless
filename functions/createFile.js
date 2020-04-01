@@ -1,18 +1,6 @@
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
 
-const createFile = `mutation createFile($id: ID!, $url: String!) {
-    createFile(input: {
-      id: $id
-      url: $url
-    }) {
-      id
-      url
-    }
-  }
-`;
-
-const executeMutation = async event => {
+const parseUrl = event => {
   // Parse Bucket and Name from S3 Notification Event
   let Bucket, Name;
   try {
@@ -28,30 +16,30 @@ const executeMutation = async event => {
       JSON.stringify(event, null, 2),
     );
   }
+  return `https://${Bucket}.s3.amazonaws.com/${Name}`;
+};
 
-  // create mutation
-  id = uuidv4();
-  url = `https://${Bucket}.s3.amazonaws.com/${Name}`;
-
-  const mutation = {
-    query: createFile,
-    operationName: 'createFile',
+const executeGQL = async ({ query, operationName, url }) => {
+  const gql = {
+    query,
+    operationName,
     variables: {
-      id,
-      url,
+      id: url,
     },
   };
+
+  console.log(`Executing GQL operation:`, gql);
 
   let response;
   try {
     response = await axios({
       method: 'POST',
       url:
-        'https://g2pjyzahzjbzpnljtd37fe6v3a.appsync-api.us-east-1.amazonaws.com/graphql',
-      data: JSON.stringify(mutation),
+        'https://w4jxfmtcabclrjcfkqvipd4m64.appsync-api.us-east-1.amazonaws.com/graphql',
+      data: JSON.stringify(gql),
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': 'da2-edkhexvrirh7tid7cqdnitfhay',
+        'x-api-key': 'da2-np3hr5j7cnfc5d6mmwixisl6z4',
       },
     });
   } catch (error) {
@@ -65,9 +53,23 @@ const executeMutation = async event => {
   return response;
 };
 
+const createFile = `mutation createFile($id: ID!) {
+    createFile(input: {
+      id: $id
+    }) {
+      id
+    }
+  }
+`;
+
 exports.handler = async event => {
   const body = event.body ? JSON.parse(event.body) : event;
-  const response = await executeMutation(body);
+  const url = parseUrl(body);
+  const response = await executeGQL({
+    query: createFile,
+    operationName: 'createFile',
+    url,
+  });
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json' },

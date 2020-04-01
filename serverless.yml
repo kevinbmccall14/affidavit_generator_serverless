@@ -22,6 +22,7 @@ org: kevinbmccall14
 
 provider:
   name: aws
+  runtime: python3.8
   httpApi:
     cors: true
   iamRoleStatements:
@@ -295,7 +296,6 @@ resources:
 
 plugins:
   - serverless-python-requirements
-
 custom:
   pythonRequirements:
     dockerizePip: true

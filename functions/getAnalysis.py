@@ -1,12 +1,10 @@
 import json
 import uuid
 import boto3
+import requests
 from helpers.textractParser import Document
-from decimal import Decimal
 
 textract = boto3.client('textract')
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('File-eag5diu73rehxez47mn7fvcc7y-dev')
 
 
 def removeEmptyString(dic):
@@ -21,10 +19,10 @@ def removeEmptyString(dic):
     return dic
 
 
-def processDocument(doc):
+def processDocument(doc, url):
     # item to PUT in DynamoDB
     item = {
-        'id': str(uuid.uuid4()),
+        'id': url,
         'pages': []
     }
     for page in doc.pages:
@@ -36,13 +34,13 @@ def processDocument(doc):
         for line in page.lines:
             newLine = {
                 'text': line.text,
-                'confidence': Decimal(line.confidence),
+                'confidence': line.confidence,
                 'words': [],
             }
             for word in line.words:
                 newLine['words'].append({
                     'text': word.text,
-                    'confidence': Decimal(word.confidence),
+                    'confidence': word.confidence,
                 })
             newPage['lines'].append(newLine)
         for table in page.tables:
@@ -53,7 +51,7 @@ def processDocument(doc):
                         'row': r,
                         'column': c,
                         'text': cell.text,
-                        'confidence': Decimal(cell.confidence)
+                        'confidence': cell.confidence,
                     })
             newPage['tables'].append(newTable)
         for field in page.form.fields:
@@ -79,11 +77,43 @@ def processDocument(doc):
     #     print("Field: Key: {}, Value: {}".format(field.key, field.value))
 
 
+def upsertFile(item):
+    query = """mutation updateFile(
+      $input: UpdateFileInput!
+    ) {
+      updateFile(input: $input) {
+        id
+      }
+    }"""
+
+    mutation = {
+        'query': query,
+        'operationName': 'updateFile',
+        'variables': {
+            'input': item
+        }
+    }
+
+    response = requests.post(
+        'https://w4jxfmtcabclrjcfkqvipd4m64.appsync-api.us-east-1.amazonaws.com/graphql',
+        data=json.dumps(mutation),
+        headers={'Content-Type': 'application/json',
+                 'x-api-key': 'da2-np3hr5j7cnfc5d6mmwixisl6z4', }
+    )
+
+    return response.json()
+
+
 def handler(event, context):
     # Parse JobID from TextractQueue
+    print('## EVENT')
+    print(event)
     for record in event['Records']:
         message = json.loads(record["body"])["Message"]
         parsed_message = json.loads(message)
+
+    print('## PARSED MESSAGE')
+    print(parsed_message)
 
     # 500 level error will keep event on TextractQueue
     # TextractQueue can configure max retry attempts and event age
@@ -100,14 +130,21 @@ def handler(event, context):
         JobId=parsed_message["JobId"]
     )
 
+    fileName = parsed_message["DocumentLocation"]['S3ObjectName']
+    bucketName = parsed_message["DocumentLocation"]['S3Bucket']
+    fileUrl = 'https://' + bucketName + '.s3.amazonaws.com/' + fileName
+
     # parse json into Document object with textractParser
     doc = Document(analysis)
     # process parsed document into dictionary item
-    item = processDocument(doc)
-    # save item into DynamoDB
-    response = table.put_item(Item=item)
+    item = processDocument(doc, fileUrl)
+    # post to AppSync Api to upsert item into DynamoDB
+    response = upsertFile(item=item)
+
+    print('## RESPONSE')
+    print(response)
 
     return {
         'statusCode': 200,
-        'body': json.dumps(response)
+        'body': response
     }
