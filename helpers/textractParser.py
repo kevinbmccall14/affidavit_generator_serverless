@@ -630,6 +630,7 @@ class Document:
     def _parseDocumentPagesAndBlockMap(self):
 
         blockMap = {}
+        pageMap = {}
 
         documentPages = []
         documentPage = None
@@ -638,7 +639,8 @@ class Document:
                 if('BlockType' in block and 'Id' in block):
                     blockMap[block['Id']] = block
 
-                if(block['BlockType'] == 'PAGE'):
+                if(block['BlockType'] == 'PAGE' and pageMap.get(block['Page']) == None):
+                    pageMap[block['Page']] = True
                     if(documentPage):
                         documentPages.append({"Blocks": documentPage})
                     documentPage = []
