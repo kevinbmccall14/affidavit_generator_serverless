@@ -147,17 +147,17 @@ resources:
       Type: AWS::SNS::Topic
       Properties:
         TopicName: "uploadTopic"
-        Subscription:
-          - Endpoint:
-              Fn::GetAtt:
-                - UploadQueue
-                - Arn
-            Protocol: sqs
-          - Endpoint:
-              Fn::GetAtt:
-                - CreateFileQueue
-                - Arn
-            Protocol: sqs
+        # Subscription:
+        # - Endpoint:
+        #     Fn::GetAtt:
+        #       - UploadQueue
+        #       - Arn
+        #   Protocol: sqs DISABLES TEXTRACT
+        # - Endpoint:
+        #     Fn::GetAtt:
+        #       - CreateFileQueue
+        #       - Arn
+        #   Protocol: sqs
     UploadTopicPolicy:
       Type: AWS::SNS::TopicPolicy
       Properties:
@@ -365,6 +365,22 @@ resources:
                 - DELETE
                 - HEAD
               MaxAge: 3000
+    ################################## SUBSCRIPTIONS ##################################
+    SNSSubscription:
+      Type: AWS::SNS::Subscription
+      DependsOn: CreateFileQueue
+      Properties:
+        TopicArn: { "Ref": "UploadTopic" }
+        # - Endpoint:
+        #     Fn::GetAtt:
+        #       - UploadQueue
+        #       - Arn
+        #   Protocol: sqs
+        Endpoint:
+          Fn::GetAtt:
+            - CreateFileQueue
+            - Arn
+        Protocol: sqs
   ################################## OUTPUTS ##################################
   Outputs:
     UploadBucketName:

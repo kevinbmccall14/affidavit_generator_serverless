@@ -1,6 +1,6 @@
 const axios = require('axios');
-
-const parseUrl = event => {
+const parseData = (event) => {
+  console.log(event);
   // Parse Bucket and Name from S3 Notification Event
   let Bucket, Name;
   try {
@@ -16,16 +16,18 @@ const parseUrl = event => {
       JSON.stringify(event, null, 2),
     );
   }
-  return `https://${Bucket}.s3.amazonaws.com/${Name}`;
+  return {
+    bucket: Bucket,
+    key: Name,
+    id: `https://${Bucket}.s3.amazonaws.com/${Name}`,
+  };
 };
 
-const executeGQL = async ({ query, operationName, url }) => {
+const executeGQL = async ({ query, operationName, variables }) => {
   const gql = {
     query,
     operationName,
-    variables: {
-      id: url,
-    },
+    variables,
   };
 
   console.log(`Executing GQL operation:`, gql);
@@ -43,6 +45,7 @@ const executeGQL = async ({ query, operationName, url }) => {
       },
     });
   } catch (error) {
+    console.error(error);
     console.error(
       `[ERROR] ${error.response.status} - ${JSON.stringify(
         error.response.data,
@@ -53,22 +56,20 @@ const executeGQL = async ({ query, operationName, url }) => {
   return response;
 };
 
-const createFile = `mutation createFile($id: ID!) {
-    createFile(input: {
-      id: $id
-    }) {
-      id
-    }
-  }
-`;
+const createFile = `mutation createFile($input: CreateFileInput!) {createFile(input: $input){id}}`;
 
-exports.handler = async event => {
+// for testing
+exports.executeGQL = executeGQL;
+
+exports.handler = async (event) => {
   const body = event.body ? JSON.parse(event.body) : event;
-  const url = parseUrl(body);
+  const data = parseData(body);
   const response = await executeGQL({
     query: createFile,
     operationName: 'createFile',
-    url,
+    variables: {
+      input: data,
+    },
   });
   return {
     statusCode: 200,
